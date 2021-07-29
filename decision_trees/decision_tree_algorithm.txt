@@ -1,0 +1,103 @@
+Dataset with one feature: assets. And one target variable.
+
+The only feature we have in the dataset is “assets”. This is why the condition in the node will be “assets > T”, where T is a threshold value that we need to determine. If the condition is true, we’ll predict “OK”, and if it’s false, our prediction will be “default”.
+
+The condition “assets > T” is called a split. It splits the dataset into two groups: the data points that satisfy the condition and the data points that do not. If T is 4000, then we have customers with more than $4000 in assets (on the left), and the customers with less than $4000 in assets (on the right).
+
+Now we turn these groups into leaves — the decision nodes. We do it by taking the most frequent status in each group and using it as the final decision. In our example, “default” is the most frequent outcome in the left group and “OK” — in the right. Thus, if a customer has more than $4000 in assets, our decision is “OK” and, otherwise, it’s “default” “assets > 4000.
+
+
+Impurity
+
+These groups should be as homogeneous as possible. Ideally, each group should contain only observations of one class. In this case, we call these groups pure.
+
+For example, if we have a group of four customers with outcomes [“default”, “default”, “default”, “default”], it’s pure: it contains only customers who defaulted. But a group [“default”, “default”, “default”, “OK”] is impure: there’s one customer who didn’t default.
+
+When training a decision tree model, we want to find such T that the impurity of both groups is minimal.
+
+So, the algorithm for finding T is quite simple:
+
+ - Try all possible values of T
+ - For each T, split the dataset into left and right groups and measure their impurity
+ - Select T that has the lowest degree of impurity
+
+There are different criteria for measuring impurity. The easiest one to understand is "misclassification rate", which says how many observations in a group don’t belong to the majority class.
+
+Note: Scikit-Learn uses more advanced split criteria such as entropy and the gini impurity. We will not cover them in this book, but the idea is the same: they measure the degree of impurity of the split.
+
+Let’s calculate the misclassification rate for the split T = 4000:
+
+1. For the left group, the majority class is “default”. There are four data points in total, and one doesn’t belong to “default”. The misclassification rate is 25% (1/4).
+2. For the right group, “OK” is the majority class, and there’s one “default”. Thus, the misclassification rate is also 25% (1/4).
+3. To calculate the overall impurity of the split, we can take the average across both groups. In this case, the average is 25%.
+
+Note:  In reality, instead of taking the simple average across both groups, we take a weighted average — we weight each group proportionally to its size. To simplify calculations, we’ll use the simple average in this chapter.
+
+T = 4000 is not the only possible split for “assets”. Let’s try other values for T such as 2000, 3000, and 5000.
+
+ - For T = 2000, we have 0% impurity of the left (0/2, all are “default”) and 33.3% impurity on the right (2/6, 2 out of 6 are 	“default”, the rest are “OK”). The average is 16.6%.
+ - For T = 3000, 0% on the left and 20% (1/5) on the right. The average is 10%.
+ - For T = 5000, 50% (3/6) on the left and 50% (1/2) on the right. The average is 50%.
+ - The best average impurity is 10% for T = 3000: we got zero mistakes for the left tree and only one (out of five rows) for the 	right. So, we should select 3000 as the threshold for our final model 
+
+The best average impurity is 10% for T = 3000: we got zero mistakes for the left tree and only one (out of five rows) for the right. So, we should select 3000 as the threshold for our final model.
+
+
+Selecting the best feature for splitting
+
+Now let’s make the problem a bit more complex and add another feature to the dataset: “debt”.
+
+Previously we had only one feature: “assets”. We knew for sure that it’ll be used for splitting the data. Now we have two features, so in addition to selecting the best threshold for splitting, we need to figure out which feature to use.
+
+The solution is simple: we try all the features, and for each feature select the best threshold.
+
+Let’s modify the training algorithm to include this change:
+
+ - For each feature, try all possible thresholds.
+ - For each threshold value T, measure the impurity of the split.
+ - Select the feature and the threshold with the lowest impurity possible.
+
+Let’s apply this algorithm to our dataset:
+
+ - We already identified that for “assets”, the best T is 3000. The average impurity of this split is 10%.
+ - For “debt”, the best T is 1000. In this case, the average impurity is 17%.
+
+So, the best split is “asset > 3000”.
+
+!!!!!!
+We took feature one by one and for it we picked all possible thresholds. Then calculated impurity for every threshold.
+And after that 1) we choose best threshold (lower impurity) 2) compare best threshold of every feature. And as a result we took best feature. 
+
+The group on the left is already pure, but the group on the right is not. We can make it less impure by repeating the process: split it again!
+When we apply the same algorithm to the dataset on the right, we find that the best split condition is “debt > 1000”. We have two levels in the tree now — or we can say that the depth of this tree is 2.
+
+Before the decision tree is ready, we need to do the last step: convert the groups into decision nodes. For that, we take the most frequent status in each group. This way, we get a decision tree.
+
+
+Stopping criteria
+
+When training a decision tree, we can keep splitting the data until all the groups are pure. This is exactly what happens when we don’t put any restrictions on the trees in Scikit-Learn. As we’ve seen, the resulting model becomes too complex, which leads to overfitting.
+
+We solved this problem by using the max_depth parameter. This way, we restricted the tree size and didn’t let it grow too big.
+
+To decide if we want to continue splitting the data, we use stopping criteria — criteria that describe if we should add another split in the tree or stop.
+
+The most common stopping criteria are:
+ - The group is already pure.
+ - The tree reached the depth limit (controlled by the max_depth parameter).
+ - The group is too small to continue splitting (controlled by the min_samples_leaf parameter).
+
+By using these criteria to stop earlier, we force our model to be less complex and therefore reduce the risk of overfitting.
+
+Let’s use this information to adjust the training algorithm:
+
+Find the best split:
+ - For each feature try all possible threshold values.
+ - Use the one with the lowest impurity.
+ - If the maximal allowed depth is reached, stop.
+ - If the group on the left is sufficiently large and it’s not pure yet, repeat on the left.
+ - If the group on the right is sufficiently large and it’s not pure yet, repeat on the right.
+
+Even though it’s a simplified version of the decision tree learning algorithm, it should give enough intuition about the internals of the learning process.
+
+Most importantly, we know that there are two parameters that control the complexity of the model. By changing these parameters, we can improve the performance of the model: max_depth & min_leaf_size
